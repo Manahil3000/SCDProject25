@@ -8,8 +8,8 @@ const path = require('path');
 const Vault = require('./data/vault');
 
 // Connect to MongoDB
-
-mongoose.connect('mongodb://localhost:27017/vaultDB')
+const mongoURI = process.env.MONGO_URI;
+mongoose.connect(mongoURI)
   .then(() => console.log('MongoDB connected'))
   .catch(err => console.error('MongoDB connection error:', err));
 
