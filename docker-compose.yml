@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7.0-jammy
+    container_name: backend-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      nodevault-net:
+        aliases:
+          - database
+          - mongodb
+    ports:
+      - "${MONGO_PORT}:27017"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/${MONGO_DB} --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  backend:
+    build: 
+      context: ./
+      dockerfile: Dockerfile
+    container_name: backend-app
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URI: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017
+      MONGO_DB: ${MONGO_DB}
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${BACKEND_PORT}
+    volumes:
+      - backend-logs:/app/logs
+    networks:
+      nodevault-net:
+        aliases:
+          - api
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: ["node", "main.js"]
+    working_dir: /app
+
+networks:
+  nodevault-net:
+    name: nodevault-network
+    driver: bridge
+
+volumes:
+  mongo-data:
+    name: nodevault-mongo-data
+  backend-logs:
+    name: nodevault-backend-logs
